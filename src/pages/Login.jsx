@@ -12,7 +12,7 @@ export default function Login() {
     otpPending,
     verifyOtp,
     resendOtp,
-    resendVerification,
+    // resendVerification,
     loginWithGoogle,
   } = useContext(AuthContext);
 
@@ -26,46 +26,42 @@ export default function Login() {
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError("");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-  try {
-    const res = await login(form.username, form.password);
+    try {
+      const res = await login(form.username, form.password);
 
-    if (res.otp_required) {
-      toast("OTP sent! Please check your email.", { icon: "🔐" });
-      // Haddii aad rabto, waxaad navigate ku diri kartaa verification page
-      navigate("/waiting-for-verification", {
-        state: { email: form.username, fromLogin: true },
-      });
-    } else if (res.verification_required) {
-      toast.error(res.message || "Please verify your account.");
-      // U dir user-ka page-ka sugitaanka verification
-      navigate("/waiting-for-verification", {
-        state: { email: form.username, fromLogin: true },
-      });
-    } else {
-      toast.success(res.message || "Login successful!");
-      navigate("/dashboard");
+      if (res.otp_required) {
+        toast("OTP sent! Please check your email.", { icon: "🔐" });
+        // Stay on login page, otpPending will trigger OTP UI
+      } else if (res.verification_required) {
+        toast.error(res.message || "Please verify your account.");
+        // Redirect to waiting page for verification
+        navigate("/waiting-for-verification", {
+          state: { email: form.username, fromLogin: true },
+        });
+      } else {
+        toast.success(res.message || "Login successful!");
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      const detail = err.response?.data?.detail || "Login failed";
+      setError(detail);
+
+      if (detail.toLowerCase().includes("verify")) {
+        toast.error("⚠️ Please verify your account before logging in.");
+        // Redirect to waiting page for verification
+        navigate("/waiting-for-verification", {
+          state: { email: form.username, fromLogin: true },
+        });
+      }
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    const detail = err.response?.data?.detail || "Login failed";
-    setError(detail);
-
-    if (detail.toLowerCase().includes("verify")) {
-      toast.error("⚠️ Please verify your account before logging in.");
-      // U dir user-ka page-ka sugitaanka verification
-      navigate("/waiting-for-verification", {
-        state: { email: form.email, fromLogin: true },
-      });
-    }
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   const handleOtpSubmit = async (e) => {
     e.preventDefault();
@@ -88,12 +84,19 @@ const handleSubmit = async (e) => {
     setError("");
     try {
       if (!credentialResponse.credential) throw new Error("Google login failed");
-      await loginWithGoogle(credentialResponse.credential);
-      toast.success("Logged in with Google!");
-      navigate("/dashboard");
+
+      const res = await loginWithGoogle(credentialResponse.credential);
+
+      // ✅ Google users are always verified now
+      if (res.user) {
+        toast.success("Logged in with Google!");
+        navigate("/dashboard");
+      } else {
+        toast.error("Google login failed: no user data returned");
+      }
     } catch (err) {
-      console.error(err);
-      toast.error("Google login failed");
+      console.error("Google login error:", err);
+      toast.error(err.response?.data?.detail || "Google login failed");
     } finally {
       setLoading(false);
     }
@@ -130,29 +133,11 @@ const handleSubmit = async (e) => {
             </div>
 
             {/* Error + Resend Verification */}
-            {error &&  (
+            {error && !error.toLowerCase().includes("verify") && (
               <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-center">
-                <p className={`text-sm ${error.toLowerCase().includes("verify") ? "text-gray-700" : "text-red-600"}`}>
+                <p className="text-sm text-red-600">
                   {error}
                 </p>
-                {error.toLowerCase().includes("verify") && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await resendVerification(otpPending?.user_id || form.username);
-                        toast.success("Verification email sent! 📧");
-                      } catch (err) {
-                        toast.error(
-                          err.response?.data?.detail || "Failed to resend verification email"
-                        );
-                      }
-                    }}
-                    className="mt-3 bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm hover:bg-indigo-700 transition-colors"
-                  >
-                    Resend Verification Email
-                  </button>
-                )}
               </div>
             )}
 

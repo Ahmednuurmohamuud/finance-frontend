@@ -9,7 +9,7 @@ export default function WaitingForVerification() {
   const emailFromState = location.state?.email || "";
   const isFromRegister = location.state?.fromRegister || false;
   const isFromLogin = location.state?.fromLogin || false;
-  
+
   const [email, setEmail] = useState(emailFromState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -17,7 +17,7 @@ export default function WaitingForVerification() {
   const [verified, setVerified] = useState(false);
   const [emailSent, setEmailSent] = useState(isFromRegister);
 
-  // Determine initial UI state based on user flow
+  // UI state
   const [uiState, setUiState] = useState({
     showEmailInput: isFromLogin,
     showOtpInput: isFromRegister,
@@ -25,7 +25,6 @@ export default function WaitingForVerification() {
   });
 
   useEffect(() => {
-    // Set initial UI state based on where user is coming from
     if (isFromRegister) {
       setUiState({
         showEmailInput: false,
@@ -41,61 +40,64 @@ export default function WaitingForVerification() {
     }
   }, [isFromRegister, isFromLogin]);
 
-const handleSendVerification = async () => {
-  if (!email) {
-    toast.error("Please enter your email.");
-    return;
-  }
-  
-  setLoading(true);
-  setError("");
-  try {
-    // Door endpoint-ka saxda ah
-    const endpoint = isFromRegister
-      ? "/users/send_verification/"
-      : "/users/resend_verification/";
+  const handleSendVerification = async () => {
+    if (!email) {
+      toast.error("Please enter your email.");
+      return;
+    }
 
-    // Dir request
-    const res = await api.post(endpoint, { email });
+    setLoading(true);
+    setError("");
+    try {
+      const endpoint = isFromRegister
+        ? "/users/send_verification/"
+        : "/users/resend_verification/";
 
-    toast.success(res.data.detail || "Verification email sent!");
-    setEmailSent(true);
-    
-    // Update UI state after sending email
-    setUiState({
-      showEmailInput: false,
-      showOtpInput: true,
-      showSendButton: true
-    });
-  } catch (err) {
-    setError(err.response?.data?.detail || "Failed to send verification email");
-  } finally {
-    setLoading(false);
-  }
-};
+      const res = await api.post(endpoint, { email });
+      toast.success(res.data.detail || "Verification email sent!");
+      setEmailSent(true);
 
+      setUiState({
+        showEmailInput: false,
+        showOtpInput: true,
+        showSendButton: true
+      });
+    } catch (err) {
+      const msg = err.response?.data?.detail || "Failed to send verification email";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleResend = async () => {
     if (!email) {
       toast.error("Please enter your email.");
       return;
     }
-    
+
     setLoading(true);
     setError("");
     try {
       const res = await api.post("/users/resend_verification/", { email });
       toast.success(res.data.detail || "Verification email resent!");
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to resend verification email");
+      const msg = err.response?.data?.detail || "Failed to resend verification email";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyOTP = async () => {
-    if (!email || !otp) {
-      toast.error("Please enter your email and OTP code.");
+    if (!email) {
+      toast.error("Email is missing. Please try again.");
+      return;
+    }
+    if (!otp) {
+      toast.error("Please enter your OTP code.");
       return;
     }
 
@@ -106,18 +108,18 @@ const handleSendVerification = async () => {
       toast.success(res.data.detail || "Email verified successfully!");
       setVerified(true);
 
-      // Redirect to dashboard after a short delay
       setTimeout(() => {
         navigate("/dashboard");
       }, 1500);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to verify OTP");
+      const msg = err.response?.data?.detail || "Failed to verify OTP";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Enable send button only if email is entered (for login flow)
   useEffect(() => {
     if (isFromLogin && !emailSent) {
       setUiState(prev => ({
@@ -152,7 +154,7 @@ const handleSendVerification = async () => {
           . Please verify your account to continue.
         </p>
 
-        {/* OTP Input and Verify Button - Only show if OTP input is enabled */}
+        {/* OTP Input */}
         {uiState.showOtpInput && (
           <div className="flex flex-col gap-2 mt-4">
             <input
@@ -172,7 +174,7 @@ const handleSendVerification = async () => {
           </div>
         )}
 
-        {/* Email Input and Send/Resend Button - Only show if not verified */}
+        {/* Email + Send/Resend */}
         {!verified && (
           <div className="flex flex-col gap-2 mt-2">
             {uiState.showEmailInput && (
@@ -184,22 +186,19 @@ const handleSendVerification = async () => {
                 className="border px-3 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base"
               />
             )}
-            
-            {uiState.showSendButton && (
-             <button
-  onClick={emailSent ? handleResend : handleSendVerification}
-  disabled={loading}
-  className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition text-base font-medium shadow-sm shadow-indigo-100 disabled:opacity-60 mt-2"
->
-  {loading 
-    ? "Sending..." 
-    : emailSent 
-      ? "Resend Verification Email" 
-      : isFromRegister 
-        ? "Send Verification Email" 
-        : "Send Login Verification"}
-</button>
 
+            {uiState.showSendButton && (
+              <button
+                onClick={emailSent ? handleResend : handleSendVerification}
+                disabled={loading}
+                className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition text-base font-medium shadow-sm shadow-indigo-100 disabled:opacity-60 mt-2"
+              >
+                {loading
+                  ? "Sending..."
+                  : emailSent
+                  ? "Resend Verification"
+                  : "Send Verification"}
+              </button>
             )}
           </div>
         )}

@@ -3,8 +3,8 @@ import React, { createContext, useState, useEffect } from "react";
 import api from "./api";
 import toast from "react-hot-toast";
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL;
+
+const GOOGLE_CLIENT_ID = "379616936425-u0q0jabn6172fk3oft9bbc11th2fdt34.apps.googleusercontent.com";
 
 export const AuthContext = createContext();
 

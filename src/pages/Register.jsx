@@ -97,27 +97,31 @@ const handleSubmit = async (e) => {
 
 
   // ===== Google Sign-Up =====
-  const handleGoogleSignUp = async (credentialResponse) => {
-    setLoading(true);
-    setError("");
-    try {
-      if (!credentialResponse.credential) throw new Error("Google Sign-Up failed");
+// ===== Google Sign-Up =====
+const handleGoogleSignUp = async (credentialResponse) => {
+  setLoading(true);
+  setError("");
+  try {
+    if (!credentialResponse.credential) throw new Error("Google Sign-Up failed");
 
-      const res = await loginWithGoogle(credentialResponse.credential);
+    const res = await loginWithGoogle(credentialResponse.credential);
 
-      if (!res.user.is_verified) {
-        toast("📧 Please verify your email sent by Google before using the account.");
-      } else {
-        toast.success("Signed up successfully with Google!");
-        navigate("/dashboard");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Google Sign-Up failed");
-    } finally {
-      setLoading(false);
+    // ✅ Google users are automatically verified
+    if (res.user) {
+      toast.success("Signed up successfully with Google!");
+      navigate("/dashboard");
+    } else {
+      toast.error("Google Sign-Up failed: no user data returned");
     }
-  };
+  } catch (err) {
+    console.error("Google Sign-Up error:", err);
+    toast.error(err.response?.data?.detail || "Google Sign-Up failed");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center p-4">
