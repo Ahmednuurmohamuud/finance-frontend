@@ -30,19 +30,24 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   setLoading(true);
   setError("");
+
   try {
     const res = await login(form.username, form.password);
 
     if (res.otp_required) {
       toast("OTP sent! Please check your email.", { icon: "🔐" });
+      // Haddii aad rabto, waxaad navigate ku diri kartaa verification page
+      navigate("/waiting-for-verification", {
+        state: { email: form.username, fromLogin: true },
+      });
     } else if (res.verification_required) {
       toast.error(res.message || "Please verify your account.");
       // U dir user-ka page-ka sugitaanka verification
       navigate("/waiting-for-verification", {
-        state: { email: res.email || form.username },
+        state: { email: form.username, fromLogin: true },
       });
     } else {
-      toast.success(res.message);
+      toast.success(res.message || "Login successful!");
       navigate("/dashboard");
     }
   } catch (err) {
@@ -53,13 +58,14 @@ const handleSubmit = async (e) => {
       toast.error("⚠️ Please verify your account before logging in.");
       // U dir user-ka page-ka sugitaanka verification
       navigate("/waiting-for-verification", {
-        state: { email: form.email },
+        state: { email: form.email, fromLogin: true },
       });
     }
   } finally {
     setLoading(false);
   }
-};;
+};
+
 
   const handleOtpSubmit = async (e) => {
     e.preventDefault();

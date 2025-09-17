@@ -1,19 +1,19 @@
+// src/service/api.js
 import axios from "axios";
 
-// Type-safe usage of VITE_API_URL
-const API_BASE_URL: string = import.meta.env.VITE_API_URL;
-
+// Create an Axios instance
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: "http://localhost:8000/api", // Local
+  // baseURL: "https://finance-backend.up.railway.app/api", // Production
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true,
 });
 
+// Optional: add interceptors for auth
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem("accessToken"); // ama cookie
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

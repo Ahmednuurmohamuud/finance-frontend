@@ -49,35 +49,51 @@ export default function Register() {
   };
 
   // ===== Register with email =====
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (form.password.length < 8) return setPasswordError("Password must be at least 8 characters");
+// ===== Register with email =====
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    setLoading(true);
-    setError("");
+  // Hubi password length
+  if (form.password.length < 8) {
+    return setPasswordError("Password must be at least 8 characters");
+  }
 
-    try {
-      const res = await register(form);
+  setLoading(true);
+  setError("");
 
-      if (!res.user.is_verified) {
-        toast("📧 Please check your email to verify your account.");
-        navigate("/waiting-for-verification", { state: { email: form.email } });
-      } else {
-        toast.success("Account created successfully!");
-        navigate("/dashboard");
-      }
-    } catch (err) {
-      const errorMsg =
-        err.response?.data?.email?.[0] ||
-        err.response?.data?.username?.[0] ||
-        err.response?.data?.detail ||
-        "Registration failed";
-      toast.error(errorMsg);
-      setError(errorMsg);
-    } finally {
-      setLoading(false);
+  try {
+    // Wac function-ka register ee auth.context
+    const res = await register(form);
+
+    // Haddii email aan la verify-gareyn
+    if (!res.user.is_verified) {
+      toast("📧 Please check your email to verify your account.");
+
+      // Navigate user-ka u gudbi WaitingForVerification page
+      navigate("/waiting-for-verification", { 
+        state: { 
+          email: form.email,
+          fromRegister: true   // Muhiim: sheegaya flow-ka register
+        } 
+      });
+    } else {
+      toast.success("Account created successfully!");
+      navigate("/dashboard");
     }
-  };
+
+  } catch (err) {
+    const errorMsg =
+      err.response?.data?.email?.[0] ||
+      err.response?.data?.username?.[0] ||
+      err.response?.data?.detail ||
+      "Registration failed";
+    toast.error(errorMsg);
+    setError(errorMsg);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
 
   // ===== Google Sign-Up =====
