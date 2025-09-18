@@ -39,7 +39,7 @@ export default function Home() {
         <div className="flex-1 relative">
           <div className="relative z-10 rounded-2xl overflow-hidden shadow-2xl">
             <img
-              src="public/finance_dashboard.jpg"
+              src="/finance_dashboard.jpg"
               alt="Finance Dashboard"
               className="w-full h-auto"
             />
