@@ -193,7 +193,7 @@ const loginWithGoogle = async (id_token) => {
 
   const verifyEmail = async (token) => {
     try {
-      const res = await api.post("/users/verify-email/", { token });
+      const res = await api.post("/users/verify_email/", { token });
       toast.success(res.data.message);
     } catch (err) {
       setError(err.response?.data?.error || "Email verification failed");

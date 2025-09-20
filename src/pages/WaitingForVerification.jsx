@@ -1,183 +1,192 @@
-import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import toast from "react-hot-toast";
 
-export default function WaitingForVerification() {
-  const location = useLocation();
+export default function EmailVerification() {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const emailFromState = location.state?.email || "";
-  const isFromRegister = location.state?.fromRegister || false;
-  const isFromLogin = location.state?.fromLogin || false;
-
-  const [email, setEmail] = useState(emailFromState);
+  const tokenFromURL = searchParams.get("token");
+  
+ const [email, setEmail] = useState(searchParams.get("email") || "");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [otp, setOtp] = useState("");
-  const [verified, setVerified] = useState(false);
-  const [emailSent, setEmailSent] = useState(isFromRegister);
+  const [verificationStatus, setVerificationStatus] = useState("pending"); // pending, success, error
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  // UI state
-  const [uiState, setUiState] = useState({
-    showEmailInput: isFromLogin,
-    showOtpInput: isFromRegister,
-    showSendButton: isFromLogin
-  });
+  // Wrap handleVerifyEmail in useCallback to prevent unnecessary recreations
+  const handleVerifyEmail = useCallback(async (token) => {
+    setLoading(true);
+    try {
+      const response = await api.post("/users/verify_email/", { token });
+      
+      if (response.data.verified) {
+        setVerificationStatus("success");
+        toast.success(response.data.message || "Email verified successfully!");
+        
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 2000);
+      }
+    } catch (err) {
+      setVerificationStatus("error");
+      const errorMsg = err.response?.data?.error || "Failed to verify email";
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate]);
 
+  // Check if we have a token in the URL on component mount
   useEffect(() => {
-    if (isFromRegister) {
-      setUiState({
-        showEmailInput: false,
-        showOtpInput: true,
-        showSendButton: true
-      });
-    } else if (isFromLogin) {
-      setUiState({
-        showEmailInput: true,
-        showOtpInput: false,
-        showSendButton: false
-      });
+    if (tokenFromURL) {
+      handleVerifyEmail(tokenFromURL);
     }
-  }, [isFromRegister, isFromLogin]);
+  }, [tokenFromURL, handleVerifyEmail]); // Added handleVerifyEmail to dependencies
 
-  const handleSendVerification = async () => {
-    if (!email) {
-      toast.error("Please enter your email.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    try {
-      const endpoint = isFromRegister
-        ? "/users/send_verification/"
-        : "/users/resend_verification/";
-
-      const res = await api.post(endpoint, { email });
-      toast.success(res.data.detail || "Verification email sent!");
-      setEmailSent(true);
-
-      setUiState({
-        showEmailInput: false,
-        showOtpInput: true,
-        showSendButton: true
-      });
-    } catch (err) {
-      const msg = err.response?.data?.detail || "Failed to send verification email";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    if (!email) {
-      toast.error("Please enter your email.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.post("/users/resend_verification/", { email });
-      toast.success(res.data.detail || "Verification email resent!");
-    } catch (err) {
-      const msg = err.response?.data?.detail || "Failed to resend verification email";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    if (!email) {
-      toast.error("Email is missing. Please try again.");
-      return;
-    }
-    if (!otp) {
-      toast.error("Please enter your OTP code.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.post("/users/verify_email/", { email, code: otp });
-      toast.success(res.data.detail || "Email verified successfully!");
-      setVerified(true);
-
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1500);
-    } catch (err) {
-      const msg = err.response?.data?.detail || "Failed to verify OTP";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Handle countdown timer for resend cooldown
   useEffect(() => {
-    if (isFromLogin && !emailSent) {
-      setUiState(prev => ({
-        ...prev,
-        showSendButton: email.length > 0
-      }));
+    let interval;
+    if (resendCooldown > 0) {
+      interval = setInterval(() => {
+        setResendCooldown(prev => prev - 1);
+      }, 1000);
     }
-  }, [email, emailSent, isFromLogin]);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      toast.error("Please enter your email address");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.post("/users/resend_verification/", { email });
+      toast.success(response.data.detail || "Verification email sent!");
+      
+      // Start cooldown timer (2 minutes = 120 seconds)
+      setResendCooldown(120);
+    } catch (err) {
+      const errorMsg = err.response?.data?.detail || "Failed to resend verification email";
+      
+      // Check if it's a rate limit error
+      if (err.response?.status === 429) {
+        setResendCooldown(120);
+      }
+      
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100 p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center flex flex-col gap-6">
-        <svg
-          className="mx-auto h-16 w-16 text-indigo-500 mb-2"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M16 12v1m0 4v.01M8 12v1m0 4v.01M21 12A9 9 0 113 12a9 9 0 0118 0z"
-          />
-        </svg>
-        <h2 className="text-2xl font-bold text-indigo-700">Check Your Email</h2>
-        <p className="text-gray-700">
-          We sent a verification code to{" "}
-          <span className="font-semibold text-indigo-600">
-            {emailFromState || email}
-          </span>
-          . Please verify your account to continue.
-        </p>
-
-        {/* OTP Input */}
-        {uiState.showOtpInput && (
-          <div className="flex flex-col gap-2 mt-4">
-            <input
-              type="text"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="Enter OTP code"
-              className="border px-3 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base"
-            />
-            <button
-              onClick={handleVerifyOTP}
-              disabled={loading || verified}
-              className="w-full bg-green-600 text-white py-2.5 px-4 rounded-lg hover:bg-green-700 transition text-base font-medium shadow-sm shadow-green-100 disabled:opacity-60"
+        {verificationStatus === "pending" && (
+          <>
+            <svg
+              className="mx-auto h-16 w-16 text-indigo-500 mb-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              {loading ? "Verifying..." : verified ? "Verified!" : "Verify OTP"}
-            </button>
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+            <h2 className="text-2xl font-bold text-indigo-700">Verify Your Email</h2>
+            <p className="text-gray-700">
+              {tokenFromURL 
+                ? "Verifying your email..." 
+                : "Please check your email for a verification link."}
+            </p>
+            
+            {!tokenFromURL && (
+              <>
+                <div className="flex flex-col gap-2 mt-4">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="border px-3 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base"
+                  />
+                  <button
+                    onClick={handleResendVerification}
+                    disabled={loading || resendCooldown > 0}
+                    className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition text-base font-medium shadow-sm shadow-indigo-100 disabled:opacity-60"
+                  >
+                    {loading 
+                      ? "Sending..." 
+                      : resendCooldown > 0 
+                        ? `Resend available in ${formatTime(resendCooldown)}`
+                        : "Resend Verification Email"}
+                  </button>
+                </div>
+                
+                <p className="text-gray-500 text-sm">
+                  Didn't receive the email? Check your spam folder or request a new verification link.
+                </p>
+              </>
+            )}
+          </>
         )}
-
-        {/* Email + Send/Resend */}
-        {!verified && (
-          <div className="flex flex-col gap-2 mt-2">
-            {uiState.showEmailInput && (
+        
+        {verificationStatus === "success" && (
+          <>
+            <svg
+              className="mx-auto h-16 w-16 text-green-500 mb-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <h2 className="text-2xl font-bold text-green-700">Email Verified!</h2>
+            <p className="text-gray-700">
+              Your email has been successfully verified. Redirecting to dashboard...
+            </p>
+          </>
+        )}
+        
+        {verificationStatus === "error" && (
+          <>
+            <svg
+              className="mx-auto h-16 w-16 text-red-500 mb-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <h2 className="text-2xl font-bold text-red-700">Verification Failed</h2>
+            <p className="text-gray-700">
+              The verification link is invalid or has expired.
+            </p>
+            
+            <div className="flex flex-col gap-2 mt-4">
               <input
                 type="email"
                 value={email}
@@ -185,36 +194,27 @@ export default function WaitingForVerification() {
                 placeholder="Enter your email"
                 className="border px-3 py-2 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base"
               />
-            )}
-
-            {uiState.showSendButton && (
               <button
-                onClick={emailSent ? handleResend : handleSendVerification}
-                disabled={loading}
-                className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition text-base font-medium shadow-sm shadow-indigo-100 disabled:opacity-60 mt-2"
+                onClick={handleResendVerification}
+                disabled={loading || resendCooldown > 0}
+                className="w-full bg-indigo-600 text-white py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition text-base font-medium shadow-sm shadow-indigo-100 disabled:opacity-60"
               >
-                {loading
-                  ? "Sending..."
-                  : emailSent
-                  ? "Resend Verification"
-                  : "Send Verification"}
+                {loading 
+                  ? "Sending..." 
+                  : resendCooldown > 0 
+                    ? `Resend available in ${formatTime(resendCooldown)}`
+                    : "Request New Verification Email"}
               </button>
-            )}
-          </div>
+            </div>
+          </>
         )}
-
-        {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-
+        
         <button
           onClick={() => navigate("/")}
           className="mt-2 w-full bg-gray-200 text-gray-800 py-2.5 px-4 rounded-lg hover:bg-gray-300 transition text-base font-medium"
         >
           Back to Home
         </button>
-
-        <div className="text-gray-400 text-xs mt-4">
-          Waiting for verification... Please refresh after verifying.
-        </div>
       </div>
     </div>
   );
