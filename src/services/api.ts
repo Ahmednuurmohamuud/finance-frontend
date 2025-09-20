@@ -3,8 +3,8 @@ import axios from "axios";
 
 // Create an Axios instance
 const api = axios.create({
-  baseURL: "http://localhost:8000/api", // Local
-  // baseURL: "https://finance-backend.up.railway.app/api", // Production
+  // baseURL: "http://localhost:8000/api", // Local
+  baseURL: "https://finance-backend.up.railway.app/api", // Production
   headers: {
     "Content-Type": "application/json",
   },
