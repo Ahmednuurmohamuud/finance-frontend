@@ -48,7 +48,7 @@ export default function Register() {
     }
   };
 
-  // ===== Register with email =====
+
 // ===== Register with email =====
 const handleSubmit = async (e) => {
   e.preventDefault();
