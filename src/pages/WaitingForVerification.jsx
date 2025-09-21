@@ -8,7 +8,7 @@ export default function EmailVerification() {
   const navigate = useNavigate();
   const tokenFromURL = searchParams.get("token");
   
- const [email, setEmail] = useState(searchParams.get("email") || "");
+  const [email, setEmail] = useState(searchParams.get("email") || "");
   const [loading, setLoading] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState("pending"); // pending, success, error
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -23,10 +23,8 @@ export default function EmailVerification() {
         setVerificationStatus("success");
         toast.success(response.data.message || "Email verified successfully!");
         
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          navigate("/dashboard");
-        }, 2000);
+        // Redirect to dashboard immediately after successful verification
+        navigate("/dashboard");
       }
     } catch (err) {
       setVerificationStatus("error");
@@ -42,7 +40,7 @@ export default function EmailVerification() {
     if (tokenFromURL) {
       handleVerifyEmail(tokenFromURL);
     }
-  }, [tokenFromURL, handleVerifyEmail]); // Added handleVerifyEmail to dependencies
+  }, [tokenFromURL, handleVerifyEmail]);
 
   // Handle countdown timer for resend cooldown
   useEffect(() => {

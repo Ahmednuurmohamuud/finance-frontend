@@ -40,7 +40,8 @@ export default function VerifyEmail() {
         const res = await api.post("/users/verify_email/", { token });
         setSuccess(res.data.message || "Email verified successfully!");
         toast.success(res.data.message || "Email verified successfully!");
-        setTimeout(() => navigate("/dashboard"), 3000); // Fixed path to lowercase
+        // Redirect to dashboard immediately after successful verification
+        navigate("/dashboard");
       } catch (err) {
         console.error(err);
         setError(
