@@ -191,15 +191,22 @@ const loginWithGoogle = async (id_token) => {
     }
   };
 
-  const verifyEmail = async (token) => {
-    try {
-      const res = await api.post("/users/verify_email/", { token });
-      toast.success(res.data.message);
-    } catch (err) {
-      setError(err.response?.data?.error || "Email verification failed");
-      throw err;
-    }
-  };
+const verifyEmail = async (token, navigate) => {
+  try {
+    const res = await api.post("/users/verify_email/", { token });
+    toast.success(res.data.message || "Email verified successfully!");
+    
+    // Redirect to dashboard after toast
+    navigate("/dashboard");  // instant redirect
+    // Or use delay for 1–2 seconds to show toast
+    // setTimeout(() => navigate("/dashboard"), 1500);
+    
+  } catch (err) {
+    setError(err.response?.data?.error || "Email verification failed");
+    throw err;
+  }
+};
+
 
   return (
     <AuthContext.Provider
